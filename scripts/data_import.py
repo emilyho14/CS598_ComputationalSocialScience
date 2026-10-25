@@ -139,7 +139,8 @@ def join_with_raw(wildchat_dir, output_path, window_size=10):
                                 following, ensure_ascii=False, default=str
                             ),
                             "has_continuation": any(
-                                m["role"] == "user" for m in following
+                                m["role"] == "user" and (m["content"] or "").strip()
+                                for m in following
                             ),
                         })
 

@@ -22,11 +22,10 @@ def continuation_summary(first_refusal_path):
         )
 
 
-def sample_followups(followups_path, output_path, n=100, seed=42, max_chars=800):
-    """Save a random sample of first follow-ups for manual labeling.
+def sample_followups(followups_path, output_path, n=100, seed=42, max_chars=None):
+    """Random sample of 100 to manually label the first follow-ups 
 
-    Text is truncated and newlines collapsed so each row stays readable in a
-    spreadsheet; full text stays in the parquet, keyed by conversation_id.
+    Newlines are collapsed so each row stays on one line; max_chars=None keeps full text.
     """
     df = pd.read_parquet(followups_path)
     first = df[(df["followup_number"] == 1) & (df["followup_request"].str.strip() != "")]
@@ -38,9 +37,9 @@ def sample_followups(followups_path, output_path, n=100, seed=42, max_chars=800)
 
     for col in text_cols:
         text = sample[col].fillna("").str.replace(r"\s*\n\s*", " ⏎ ", regex=True)
-        too_long = text.str.len() > max_chars
-        text = text.str.slice(0, max_chars).where(~too_long, text.str.slice(0, max_chars) + " […]")
-        # Leading apostrophe stops Excel/Sheets from evaluating cells that start like formulas.
+        if max_chars is not None:
+            too_long = text.str.len() > max_chars
+            text = text.str.slice(0, max_chars).where(~too_long, text.str.slice(0, max_chars) + " […]")
         sample[col] = text.where(~text.str.match(r"^[=+\-@]"), "'" + text)
 
     sample["is_refusal"] = ""

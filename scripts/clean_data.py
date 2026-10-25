@@ -6,9 +6,16 @@ from pathlib import Path
 import pandas as pd
 
 
+def has_user_reply(following_messages):
+    messages = json.loads(following_messages)
+    return any(m["role"] == "user" and (m["content"] or "").strip() for m in messages)
+
+
 def clean_refusals(input_path, output_path):
     """Keep one row per conversation: its earliest labeled refusal."""
     df = pd.read_parquet(input_path)
+    # The joined file counted empty user messages as continuations.
+    df["has_continuation"] = df["following_messages"].map(has_user_reply)
     print("Original records:", len(df))
     print("Unique conversations:", df["conversation_id"].nunique())
     print("Missing original requests:", df["original_request"].isna().sum())
@@ -63,7 +70,8 @@ def extract_followups(input_path, output_path):
     for _, row in df[df["has_continuation"]].iterrows():
         messages = json.loads(row["following_messages"])
         user_messages = [
-            (i, m) for i, m in enumerate(messages) if m["role"] == "user"
+            (i, m) for i, m in enumerate(messages)
+            if m["role"] == "user" and (m["content"] or "").strip()
         ]
         for followup_number, (position, message) in enumerate(user_messages, start=1):
             records.append({
