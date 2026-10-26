@@ -49,6 +49,8 @@ data/
 ## Pipeline
 
 Open `pipeline.ipynb` and run the cells in order. The first cell defines every file path.
+- For the `followup_annotation_sample.csv` that is created, you will need to manually annotate this random sample of 100 post-refusal responses. This is a part of the manual labeling for analysis. 
+- Note: due to the fact that the data in out `followup_annotation_sample.csv` is from the restricted access Hugging Face model, you can reproduce the results by requesting access to the WildChat dataset and running the scripts from there.
 
 ### 1. Import data (`data_import.py`)
 
