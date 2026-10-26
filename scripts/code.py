@@ -46,15 +46,9 @@ import csv
 from collections import Counter
 from pathlib import Path
 
-from datasets import DatasetDict, load_dataset
+from datasets import load_dataset
 from huggingface_hub import hf_hub_download
 
-
-WILDGUARD_LABEL_COLUMNS = (
-    "response_refusal_label",
-    "prompt_harm_label",
-    "response_harm_label",
-)
 
 RAW_REPO = "pkireyev1/raw-refusal-aversion-in-the-wild"
 RAW_LABEL_COLUMNS = (
@@ -63,61 +57,6 @@ RAW_LABEL_COLUMNS = (
     "is_refusal_coalesced",
 )
 
-
-def iter_splits(loaded_dataset):
-    """Yield (split name, dataset) pairs for either a Dataset or DatasetDict."""
-    if isinstance(loaded_dataset, DatasetDict):
-        yield from loaded_dataset.items()
-    else:
-        yield "data", loaded_dataset
-
-
-def print_column_counts(dataset, column, limit=10):
-    """Print non-text label/category counts and the number of missing values."""
-    counts = Counter(value for value in dataset[column] if value is not None)
-    missing = sum(value is None for value in dataset[column])
-
-    print(f"  {column}:")
-    for value, count in counts.most_common(limit):
-        print(f"    {value}: {count:,}")
-    if missing:
-        print(f"    <missing>: {missing:,}")
-
-
-def summarize_dataset(name, loaded_dataset):
-    """Report dataset structure and relevant label/category distributions."""
-    for split_name, dataset in iter_splits(loaded_dataset):
-        print(f"\n{name} — {split_name}: {dataset.num_rows:,} rows")
-        print("  Columns:", ", ".join(dataset.column_names))
-
-        columns_to_summarize = [
-            column
-            for column in (*WILDGUARD_LABEL_COLUMNS, "category_text", "subcategory")
-            if column in dataset.column_names
-        ]
-        for column in columns_to_summarize:
-            print_column_counts(dataset, column)
-
-
-def main():
-    # WildGuardMix access requires accepting the dataset terms on Hugging Face
-    # and authenticating if prompted by the datasets library.
-    # wildguard_test = load_dataset("allenai/wildguardmix", "wildguardtest")
-    # wildguard_train = load_dataset("allenai/wildguardmix", "wildguardtrain")
-
-
-    # raw_dataset = load_dataset("pkireyev1/raw-refusal-aversion-in-the-wild")
-
-    # FalseReject is an auxiliary over-refusal resource, not retry data.
-    false_reject_train = load_dataset("AmazonScience/FalseReject", split="train")
-
-    # summarize_dataset("WildGuardMix test", wildguard_test)
-    # summarize_dataset("WildGuardMix train", wildguard_train)
-    # summarize_dataset("RAW data", raw_dataset)
-    summarize_dataset("FalseReject train", false_reject_train)
-
-    # WildChat access is pending. Once approved, add a separate loader and
-    # identify sequential user/assistant turns before computing retry rates.
 
 def looking_at_raw():
     """Analyze label coverage, refusal rates, and judge agreement per cell."""
@@ -257,5 +196,4 @@ def print_agreement(contingency):
     )
 
 if __name__ == "__main__":
-    main()
     looking_at_raw()

@@ -1,4 +1,4 @@
-"""RQ1: what users do after a refusal (continuation rate and annotation sample)."""
+"""RQ1: what users do following a refusal (continuation rate and annotation sample)."""
 
 from pathlib import Path
 
@@ -6,7 +6,7 @@ import pandas as pd
 
 
 def continuation_summary(first_refusal_path):
-    """Print how many conversations show a user message after the first refusal."""
+    """Counting how many conversations show a user message after the first refusal."""
     df = pd.read_parquet(first_refusal_path)
 
     total = len(df)
@@ -25,7 +25,7 @@ def continuation_summary(first_refusal_path):
 def sample_followups(followups_path, output_path, n=100, seed=42, max_chars=None):
     """Random sample of 100 to manually label the first follow-ups 
 
-    Newlines are collapsed so each row stays on one line; max_chars=None keeps full text.
+    New lines are collapsed for CSV purposes; max_chars=None keeps full text to not having a char limit
     """
     df = pd.read_parquet(followups_path)
     first = df[(df["followup_number"] == 1) & (df["followup_request"].str.strip() != "")]
