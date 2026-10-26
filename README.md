@@ -91,12 +91,11 @@ Run separately: `python scripts/code.py`. It streams RAW's label files for all 1
 
 ## Not done yet
 
-- Manual labeling of `followup_annotation_sample.csv` (retry type) and a manual check of refusal labels.
+- Manual labeling of 100 samples are contained in `followup_annotation_sample.csv`. Labeling was done by 3 personas.
 - Labeling the assistant response to each retry (second refusal vs. answer) for RQ1.2.
 - Retry language features and their association with outcomes (RQ1.3).
 - RQ2: replaying the original request and retry on other open-source models.
 
 ## Reproducibility notes
-
-- Add a `requirements.txt` with pinned versions once the environment settles.
-- Add a `.gitignore` covering `.venv/`, `data/`, and `.DS_Store` so large data files aren't committed.
+- To reproduce this project, you will need to request access to the above Hugging Face datasets. Once approved, log into Hugging Face via Terminal and you will be able to load the datasets. 
+- Note: due to the large size of the "...WildChat-4.8M-Full" dataset, it may take time to load. However, you will be able to reproduce the results after this.
