@@ -25,7 +25,7 @@ RAW labels come from LLM judges (GPT-5.4-mini and WildGuard), not human annotato
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install datasets huggingface_hub pandas pyarrow jupyter
+pip install datasets huggingface_hub pandas pyarrow jupyter python-dotenv requests
 huggingface-cli login   # needed for the gated datasets
 ```
 
@@ -39,6 +39,7 @@ scripts/
   data_import.py                   download WildChat, join with RAW labels
   clean_data.py                    deduplicate, keep first refusal, extract follow-ups
   rq1_post_refusal_behavior.py     RQ1 continuation summary and annotation sample
+  matching.py                      RQ1.2 request-response pairing and LLM judge
 pipeline.ipynb                     runs the steps above; holds all file paths
 raw_cell_summary.csv               output of scripts/code.py
 data/
@@ -79,6 +80,17 @@ Open `pipeline.ipynb` and run the cells in order. The first cell defines every f
 - `continuation_summary(FIRST_REFUSALS)` reports how many first-refusal conversations show a user message within the window and how many do not (RQ1.1).
 - `sample_followups(FOLLOWUPS, ANNOTATION_SAMPLE)` draws up to 100 first follow-ups (seed 42) into `data/processed/followup_annotation_sample.csv`, with empty `human_label` and `notes` columns for manual coding.
 
+### 4. RQ1.2 matching (`matching.py`)
+
+Pairs each refused request with later assistant responses and uses an LLM judge to find the earliest one that fulfills it.
+
+- `build_pairs(FIRST_REFUSALS, PAIRS)` writes one row per (refused request, later assistant response) pair in the 10-message window. `retry_number` counts the non-empty user messages between the refusal and the candidate; `0` means the response came without a new user message (e.g. a regeneration).
+- `judge_pairs(PAIRS, JUDGMENTS, model=..., base_url=...)` sends the original request and the candidate response to an OpenAI-compatible API (default: `qwen3.8-27b` on [NCSA Lumen](https://lumen.ncsa.illinois.edu/help/connect), 8 requests at a time). The judge returns `full fulfillment`, `partial fulfillment`, `no fulfillment`, or `uncertain`, with an explanation and a supporting quote. Results are appended to `fulfillment_judgments.jsonl`; already-judged pairs are skipped, so the run can be resumed. Failed requests and replies that can't be parsed are not saved and are retried on the next run. Texts longer than 6,000 characters are truncated.
+- `earliest_fulfillment(FIRST_REFUSALS, PAIRS, JUDGMENTS, FULFILLMENT)` writes one row per conversation with `fulfilled` and the offset and retry number of the earliest full fulfillment. Conversations without one are recorded as having no observed fulfillment in the window.
+- `sample_pairs_for_annotation(...)` and `judge_agreement(...)` draw 100 judged pairs (seed 42) for manual labeling and report agreement, Cohen's kappa, and per-label precision and recall.
+
+To run the judge: create an API key on your [Lumen profile page](https://lumen.ncsa.illinois.edu/profile), acknowledge the judge model there if Lumen asks, then copy `.env.example` to `.env` and set `LUMEN_API_KEY` there. The notebook loads it with `python-dotenv`; `.env` is git-ignored. Any other OpenAI-compatible server (Ollama, vLLM) works by changing `JUDGE_URL` and `JUDGE_MODEL`.
+
 ## RAW label analysis (`scripts/code.py`)
 
 Run separately: `python scripts/code.py`. It streams RAW's label files for all 19 model/pool cells and reports, per cell, record counts, label coverage, and refusal rates for the GPT-5.4-mini, WildGuard, and coalesced labels. It also compares GPT-5.4-mini and WildGuard on records where both labeled a message (agreement and Cohen's kappa). Results are saved to `raw_cell_summary.csv`. It also prints a FalseReject summary, which is background only.
@@ -94,7 +106,7 @@ Run separately: `python scripts/code.py`. It streams RAW's label files for all 1
 ## Not done yet
 
 - Manual labeling of 100 samples are contained in `followup_annotation_sample.csv`. Labeling was done by 3 personas.
-- Labeling the assistant response to each retry (second refusal vs. answer) for RQ1.2.
+- Running the fulfillment judge on all pairs and validating it against manual labels (RQ1.2; code in `matching.py`).
 - Retry language features and their association with outcomes (RQ1.3).
 - RQ2: replaying the original request and retry on other open-source models.
 
