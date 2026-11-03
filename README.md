@@ -39,6 +39,7 @@ scripts/
   data_import.py                   download WildChat, join with RAW labels
   clean_data.py                    deduplicate, keep first refusal, extract follow-ups
   rq1_post_refusal_behavior.py     RQ1 continuation summary and annotation sample
+  analyze_followup_annotations.py summarize the manual follow-up annotations
   matching.py                      RQ1.2 request-response pairing and LLM judge
 pipeline.ipynb                     runs the steps above; holds all file paths
 raw_cell_summary.csv               output of scripts/code.py
@@ -78,7 +79,8 @@ Open `pipeline.ipynb` and run the cells in order. The first cell defines every f
 ### 3. RQ1 (`rq1_post_refusal_behavior.py`)
 
 - `continuation_summary(FIRST_REFUSALS)` reports how many first-refusal conversations show a user message within the window and how many do not (RQ1.1).
-- `sample_followups(FOLLOWUPS, ANNOTATION_SAMPLE)` draws up to 100 first follow-ups (seed 42) into `data/processed/followup_annotation_sample.csv`, with empty `human_label` and `notes` columns for manual coding.
+- `sample_followups(FOLLOWUPS, ANNOTATION_SAMPLE)` draws up to 100 first follow-ups (seed 42) into `data/processed/followup_annotation_sample.csv`, with empty `human_label`, `is_refusal`, and `notes` columns for manual coding. Do not rerun this after adding annotations unless you intend to replace the CSV with a fresh sample.
+- After manually annotating the local CSV, run `python scripts/analyze_followup_annotations.py`. It summarizes `human_label` and `is_refusal`, including their cross-tab, and writes `data/processed/followup_annotation_summary.csv` without changing the annotated input. The annotation CSV contains conversation text; keep it local and do not commit or redistribute it.
 
 ### 4. RQ1.2 matching (`matching.py`)
 
