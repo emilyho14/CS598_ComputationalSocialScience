@@ -87,6 +87,7 @@ Pairs each refused request with later assistant responses and uses an LLM judge 
 - `build_pairs(FIRST_REFUSALS, PAIRS)` writes one row per (refused request, later assistant response) pair in the 10-message window. `retry_number` counts the non-empty user messages between the refusal and the candidate; `0` means the response came without a new user message (e.g. a regeneration).
 - `judge_pairs(PAIRS, JUDGMENTS, model=..., base_url=...)` sends the original request and the candidate response to an OpenAI-compatible API (default: `qwen3.8-27b` on [NCSA Lumen](https://lumen.ncsa.illinois.edu/help/connect), 8 requests at a time). The judge returns `full fulfillment`, `partial fulfillment`, `no fulfillment`, or `uncertain`, with an explanation and a supporting quote. Results are appended to `fulfillment_judgments.jsonl`; already-judged pairs are skipped, so the run can be resumed. Failed requests and replies that can't be parsed are not saved and are retried on the next run. Texts longer than 6,000 characters are truncated.
 - `earliest_fulfillment(FIRST_REFUSALS, PAIRS, JUDGMENTS, FULFILLMENT)` writes one row per conversation with `fulfilled` and the offset and retry number of the earliest full fulfillment. Conversations without one are recorded as having no observed fulfillment in the window.
+- `second_refusal(FIRST_REFUSALS, RAW_LABELS, SECOND_REFUSAL, PAIRS, JUDGMENTS)` (in `rq1_post_refusal_behavior.py`) finds the assistant reply to each conversation's first non-empty follow-up and looks up its RAW labels (WildGuard, GPT-5.4-mini, coalesced) in the same RAW cell as the first refusal. It reports the share refused again, with Wilson 95% intervals, and cross-tabulates the WildGuard label against the judge's label for the same reply. The labels come from `data_import.save_raw_labels(FIRST_REFUSALS, RAW_LABELS)`, which saves every RAW label (not only refusals) for our conversations to `data/processed/raw_labels.parquet`. RAW does not label every message (only about half of these replies have a row), so the rates are among labeled replies.
 - `sample_pairs_for_annotation(...)` and `judge_agreement(...)` draw 100 judged pairs (seed 42) for manual labeling and report agreement, Cohen's kappa, and per-label precision and recall.
 
 To run the judge: create an API key on your [Lumen profile page](https://lumen.ncsa.illinois.edu/profile), acknowledge the judge model there if Lumen asks, then copy `.env.example` to `.env` and set `LUMEN_API_KEY` there. The notebook loads it with `python-dotenv`; `.env` is git-ignored. Any other OpenAI-compatible server (Ollama, vLLM) works by changing `JUDGE_URL` and `JUDGE_MODEL`.
@@ -106,7 +107,7 @@ Run separately: `python scripts/code.py`. It streams RAW's label files for all 1
 ## Not done yet
 
 - Manual labeling of 100 samples are contained in `followup_annotation_sample.csv`. Labeling was done by 3 personas.
-- Running the fulfillment judge on all pairs and validating it against manual labels (RQ1.2; code in `matching.py`).
+- Validating the fulfillment judge against manual labels (RQ1.2; `judge_annotation_sample.csv`).
 - Retry language features and their association with outcomes (RQ1.3).
 - RQ2: replaying the original request and retry on other open-source models.
 

@@ -5,6 +5,7 @@ import json
 from collections import defaultdict
 from pathlib import Path
 
+import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 from datasets import Dataset, load_dataset
@@ -86,6 +87,33 @@ def load_refusal_labels():
 
     print(f"\nFound {len(refusals):,} conversations with refusals")
     return refusals
+
+
+def save_raw_labels(first_refusal_path, output_path):
+    """Save every RAW label (refusal or not) for the conversations in first_refusal_path."""
+    conversations = pq.read_table(
+        first_refusal_path, columns=["conversation_id", "raw_cell"]
+    ).to_pandas()
+    wanted = set(conversations["conversation_id"])
+    cells = set(conversations["raw_cell"])
+
+    tables = []
+    for tag in sorted(cells):
+        print(f"Reading RAW cell: {tag}", flush=True)
+        path = hf_hub_download(
+            repo_id=RAW_REPO, repo_type="dataset", filename=f"labels/{tag}.parquet"
+        )
+        labels = pq.read_table(path).to_pandas()
+        labels = labels[labels["conversation_id"].isin(wanted)].copy()
+        labels["raw_cell"] = tag
+        tables.append(labels)
+
+    labels = pd.concat(tables, ignore_index=True)
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    labels.to_parquet(output_path, index=False)
+    print(f"Saved {len(labels):,} labeled messages to {output_path}")
+    return labels
 
 
 def join_with_raw(wildchat_dir, output_path, window_size=10):
