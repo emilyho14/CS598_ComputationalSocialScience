@@ -40,6 +40,7 @@ scripts/
   clean_data.py                    deduplicate, keep first refusal, extract follow-ups
   rq1_post_refusal_behavior.py     RQ1 continuation summary and annotation sample
   matching.py                      RQ1.2 request-response pairing and LLM judge
+  rq1_3_semantic.py                RQ1.3 retry features and fulfillment regression
 pipeline.ipynb                     runs the steps above; holds all file paths
 raw_cell_summary.csv               output of scripts/code.py
 data/
@@ -108,7 +109,6 @@ Run separately: `python scripts/code.py`. It streams RAW's label files for all 1
 
 - Manual labeling of 100 samples are contained in `followup_annotation_sample.csv`. Labeling was done by 3 personas.
 - Validating the fulfillment judge against manual labels (RQ1.2; `judge_annotation_sample.csv`).
-- Retry language features and their association with outcomes (RQ1.3).
 - RQ2: replaying the original request and retry on other open-source models.
 
 ## Reproducibility notes
