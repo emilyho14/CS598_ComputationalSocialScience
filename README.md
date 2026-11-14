@@ -24,10 +24,14 @@ RAW labels come from LLM judges (GPT-5.4-mini and WildGuard), not human annotato
 
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate
-pip install datasets huggingface_hub pandas pyarrow jupyter python-dotenv requests
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 huggingface-cli login   # needed for the gated datasets
 ```
+
+The versions in `requirements.txt` are the ones the pipeline was run with (Python 3.10).
+
+If you have a copy of `data/processed` from a teammate, extract it at the repository root. The notebook then skips every step that already has an output file, so it runs without WildChat access, `huggingface-cli login`, or a Lumen API key.
 
 Run commands from the repository root; all paths are relative to it.
 
@@ -40,6 +44,7 @@ scripts/
   clean_data.py                    deduplicate, keep first refusal, extract follow-ups
   rq1_post_refusal_behavior.py     RQ1 continuation summary and annotation sample
   matching.py                      RQ1.2 request-response pairing and LLM judge
+  contextual.py                    RQ1.3 retry strategy scores and model
 pipeline.ipynb                     runs the steps above; holds all file paths
 raw_cell_summary.csv               output of scripts/code.py
 data/
@@ -92,6 +97,23 @@ Pairs each refused request with later assistant responses and uses an LLM judge 
 
 To run the judge: create an API key on your [Lumen profile page](https://lumen.ncsa.illinois.edu/profile), acknowledge the judge model there if Lumen asks, then copy `.env.example` to `.env` and set `LUMEN_API_KEY` there. The notebook loads it with `python-dotenv`; `.env` is git-ignored. Any other OpenAI-compatible server (Ollama, vLLM) works by changing `JUDGE_URL` and `JUDGE_MODEL`.
 
+### 5. RQ1.3 contextual analysis (`contextual.py`)
+
+Scores four retry strategies on every follow-up `u_k` (k = 1..5) of the refused request `m_i` and fits one model of whether the reply to `u_k` fully fulfills `m_i`. `E(x)` is the normalized `BAAI/bge-m3` embedding (first 512 tokens); `mod(x)` is the highest OpenAI moderation category score, which WildChat stores for every message.
+
+| Strategy | Score for `u_k` | Column |
+| --- | --- | --- |
+| Repetition | `E(u_k) · E(m_i)` | `repetition` |
+| Fictional framing | `E(u_k) · v - E(m_i) · v`, where `v` is the normalized mean of `E(framed) - E(plain)` over the 20 example pairs in `FICTION_PAIRS` | `fiction` |
+| Softening | `mod(m_i) - mod(u_k)`; positive means toned down | `softening` |
+| Decomposition | `m_i` is split into clauses (sentences/lines of 15+ characters, at most 10). With `s(c, j)` the cosine of clause `c` and follow-up `u_j`, `j <= k`: mean over clauses of their best match, minus the best single follow-up's mean match. 0 when `m_i` has fewer than 2 clauses | `decomposition` |
+
+- `build_followup_table(FOLLOWUPS, FIRST_REFUSALS, RAW_LABELS, PAIRS, JUDGMENTS, STRATEGY_FOLLOWUPS)` writes one row per follow-up with the judge's label for the first reply after it, and whether GPT-5.4-mini also labels the first refusal a refusal. `add_moderation(WILDCHAT_DIR, STRATEGY_FOLLOWUPS)` adds `mod(m_i)` and `mod(u_k)` from `data/wildchat`.
+- `embed_texts(STRATEGY_FOLLOWUPS, STRATEGY_EMBEDDINGS)` embeds every `m_i`, follow-up, clause, and fiction example on CPU. This takes about an hour; the notebook skips it when `strategy_embeddings.npz` exists.
+- `score_strategies(...)` writes `strategy_scores.parquet`; `show_extremes(scores, column)` prints the highest- and lowest-scoring follow-ups for checking by eye.
+- `fit_ols(scores)` fits a linear probability model on follow-ups up to each conversation's first full fulfillment. Scores are standardized, so each effect is the change in P(fulfilled) in percentage points per 1 SD. Controls: `mod(m_i)`, whether `m_i` has 2+ clauses, follow-up number, source model, and pool. Standard errors are clustered by conversation, with Holm-adjusted p-values across the four strategies.
+- `results_table(scores)` reports every coefficient in percentage points (two decimals, `*` for p < .05), one column per model: the main OLS, a logit (average marginal effects), on-topic follow-ups only (repetition 0.6 to 0.95), refusals GPT-5.4-mini also labels, and partial fulfillment counted as success. The last rows give R², N, conversations, first fulfillments, and the fulfillment rate.
+
 ## RAW label analysis (`scripts/code.py`)
 
 Run separately: `python scripts/code.py`. It streams RAW's label files for all 19 model/pool cells and reports, per cell, record counts, label coverage, and refusal rates for the GPT-5.4-mini, WildGuard, and coalesced labels. It also compares GPT-5.4-mini and WildGuard on records where both labeled a message (agreement and Cohen's kappa). Results are saved to `raw_cell_summary.csv`. It also prints a FalseReject summary, which is background only.
@@ -108,7 +130,7 @@ Run separately: `python scripts/code.py`. It streams RAW's label files for all 1
 
 - Manual labeling of 100 samples are contained in `followup_annotation_sample.csv`. Labeling was done by 3 personas.
 - Validating the fulfillment judge against manual labels (RQ1.2; `judge_annotation_sample.csv`).
-- Retry language features and their association with outcomes (RQ1.3).
+- Retry language features (RQ1.3, semantic analysis). The contextual analysis covers four strategies within the 5-follow-up window.
 - RQ2: replaying the original request and retry on other open-source models.
 
 ## Reproducibility notes

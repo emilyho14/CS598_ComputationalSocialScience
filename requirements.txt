@@ -1,0 +1,12 @@
+# Tested with Python 3.10.6.
+datasets==5.1.0
+huggingface_hub==2.3.0
+pandas==2.3.3
+pyarrow==25.0.1
+python-dotenv==1.2.4
+requests==2.34.2
+jupyter==1.1.1
+# RQ1.3 contextual analysis (embeddings run on CPU).
+torch==2.14.1
+sentence-transformers==6.2.0
+statsmodels==0.15.0
